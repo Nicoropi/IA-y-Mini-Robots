@@ -1,97 +1,3 @@
-# Ejercicios y Problemas Semana 2
-
-## Nombres
-- Nicolas Rodriguez Piraban
-- a
-- a
-
----
-## Ejercicio 1
-
-Enunciado:
-
-Observe sus comportamientos en la casa, en la universidad y en el medio de transporte que utiliza. Encuentre para cada uno de estos escenarios sus reglas básicas.
-
-### Casa:
-
-| Estado           | Simbolo |
-| ---------------- | ------- |
-| Realizar Deberes | 0       |
-| Ocio             | 1       |
-| Dormir           | 2       |
-
-| Pregunta (sensor) | Simbolo |
-| ----------------- | --------|
-| Es de dia         | A       |
-| Tengo Energia     | B       |
-| Tengo deberes     | C       |
-
-Con estos estados y sensores se define la siguientes reglas
-
-| A | B | C | Estado |
-|---|---|---|--------|
-| 0 | 0 | 0 | 2      |
-| 0 | 0 | 1 | 2      |
-| 0 | 1 | 0 | 1      |
-| 0 | 1 | 1 | 0      |
-| 1 | 0 | 0 | 1      |
-| 1 | 0 | 1 | 0      |
-| 1 | 1 | 0 | 1      |
-| 1 | 1 | 1 | 0      |
-
-### Universidad:
-
-| Estado           | Simbolo |
-| ---------------- | ------- |
-| Ir a Clase       | 0       |
-| Estudiar         | 1       |
-| Descansar        | 2       |
-
-| Pregunta (sensor) | Simbolo |
-| ----------------- | --------|
-| Hay clase ahora   | A       |
-| Tengo pereza      | B       |
-| Hay parcial       | C       |
-
-Con estos estados y sensores se define la siguientes reglas
-
-| A | B | C | Estado |
-|---|---|---|--------|
-| 0 | 0 | 0 | 2      |
-| 0 | 0 | 1 | 1      |
-| 0 | 1 | 0 | 2      |
-| 0 | 1 | 1 | 2      |
-| 1 | 0 | 0 | 0      |
-| 1 | 0 | 1 | 0      |
-| 1 | 1 | 0 | 0      |
-| 1 | 1 | 1 | 0      |
-
-
-### Transporte:
-
-| Estado  | Simbolo |
-| ------- | ------- |
-| Subirme | 0       |
-| Bajarme | 1       |
-| Esperar | 2       |
-
-| Pregunta (sensor) | Simbolo |
-| ----------------- | --------|
-| Tengo que bajarme del bus? | A       |
-| Tengo que subirme al bus?  | B       |
-| Ha llegado el bus?         | C       |
-
-Con estos estados y sensores se define la siguientes reglas
-
-| A | B | C | Estado |
-|---|---|---|--------|
-| 0 | 0 | 0 | 2      |
-| 0 | 0 | 1 | 2      |
-| 0 | 1 | 0 | 2      |
-| 0 | 1 | 1 | 0      |
-| 1 | 0 | 0 | 2      |
-| 1 | 0 | 1 | 1      |
-
 ## Ejercicio 2/3
 
 Enunciado:
@@ -101,6 +7,7 @@ Simule el comportamiento de un robot con tres sensores de distancia, que recorre
 Solucion:
 
 ```bash
+cd ./robot
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
@@ -199,24 +106,3 @@ while True:
     readings = robot.get_sensor_readings(obstaculos)
 ```
 
-## Ejercicio 4
-
-Para la realización del ejercicio 4 se tomó como base el mapa de cota
-
-![Mapa Cota](./media/Cota_img_base.jpg)
-
-### Centros de Salud
-
-El diagrama de Voronoi de los centros de salud obtenido fue el siguiente
-
-![Diagrama de Voronoi de Centros de Salud](./media/Diag_vor_hosp.jpg)
-
-Como se puede observar, practicamente todos los
-centros de salud se encuentran en el centro de
-la ciudad, a excepción de solo un centro medico.
-
-Con esto en mente, despues de realizar el diagrama
-de Voronoi para los centros de salud en cota hace
-falta, en general, aumentar la dispersion de los
-centros de salud para que zonas no tan centrales
-tengan facil acceso a estos centros.

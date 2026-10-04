@@ -15,7 +15,6 @@ Para desarrollar el codigo se utilizó un asistente de IA con el siguiente promp
 ## Contenido del repositorio
 
 - `Fashion_MNIST_TensorFlow_Clasificacion.ipynb`: notebook completo (código, explicaciones y conclusiones).
-- `README.md`: este archivo.
 
 ## Descripción del modelo
 

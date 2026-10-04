@@ -2,14 +2,6 @@
 
 Estudio del algoritmo SVM, código documentado en español y una aplicación de reconocimiento de dígitos escritos a mano.
 
-**Materia:** Redes Neuronales (electiva) · **Tema:** algoritmo SVM · **Entorno:** Google Colab / Jupyter
-
-## Contenido
-
-1. [Fundamentos teóricos](#1-fundamentos-teóricos)
-2. [Código](#2-código)
-
----
 
 ## 1. Fundamentos teóricos
 

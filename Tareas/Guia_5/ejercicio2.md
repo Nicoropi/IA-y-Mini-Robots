@@ -8,7 +8,7 @@ Ejercicio de la materia **Redes Neuronales** (Capítulo 5, sección 5.9, punto 2
 
 ## Prompt utilizado
 
-Para desarrollar el ejercicio se utilizó un asistente de IA (permitido en la materia) con el siguiente prompt:
+Para desarrollar el codigo se utilizó un asistente de IA con el siguiente prompt:
 
 > "Con base en la librería TensorFlow, descargue el dataset Fashion MNIST. Haga una clasificación de prendas de vestir. Explique cada una de las funciones y las principales instrucciones, saque conclusiones." Dame un notebook para Google Colab, con celdas separadas y comentarios en español, que: - cargue Fashion MNIST, muestre algunas imágenes y normalice los datos - entrene una red neuronal densa (Flatten, capa oculta ReLU, salida softmax de 10 clases) con validation_split - grafique pérdida y exactitud de entrenamiento vs validación - evalúe en el conjunto de prueba, muestre predicciones y una matriz de confusión
 

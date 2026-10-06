@@ -1,22 +1,37 @@
 """
 Ejercicio 3 - Chatbot basico (Guia 7: IA Generativa).
 
-Interfaz de chat web servida por la libreria estandar de Python y respuestas
-generadas por un modelo de Ollama corriendo en la maquina local.
+Interfaz de chat web servida por Python y respuestas generadas por un modelo de
+Ollama corriendo en la maquina local.
 
-Solo usa la libreria estandar: no requiere instalar nada mas.
+Incluye un motor simple de RAG que extrae texto de PDFs y PPTX de Docs_Clase y
+recupera los fragmentos mas relevantes antes de responder.
 
 Uso:
     python chatbot.py
 """
 
 import json
+import re
 import sys
 import threading
 import urllib.error
 import urllib.request
 import webbrowser
+from collections import Counter
+from difflib import SequenceMatcher
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+try:
+    from pypdf import PdfReader
+except ImportError:  # pragma: no cover
+    PdfReader = None
+
+try:
+    from pptx import Presentation
+except ImportError:  # pragma: no cover
+    Presentation = None
 
 # --- Config ---
 OLLAMA_URL = "http://localhost:11434"
@@ -30,11 +45,15 @@ PROMPT_SISTEMA = (
     "Nacional de Colombia. Respondes siempre en espanol, de forma breve y clara, "
     "con un tono amable y directo. Explicas los conceptos tecnicos con ejemplos "
     "sencillos cuando ayude. Si no sabes algo o no estas seguro, lo dices con "
-    "franqueza: nunca inventas datos, citas ni bibliografia."
+    "franqueza: nunca inventas datos, citas ni bibliografia. Cuando el contexto "
+    "del curso te lo proporcione, responde basado en ese material y menciona la "
+    "fuente cuando ayude."
 )
 
 MODELO = MODELO_PREDETERMINADO
 AVISOS = []
+DOCS_CLASE = Path(__file__).resolve().parents[3] / "Docs_Clase"
+INDICE_DOCUMENTAL = []
 
 
 # --- LLM ---
@@ -88,6 +107,138 @@ def preguntar(mensajes, modelo):
             f"Verifica que este corriendo con 'ollama serve'. Detalle: {e}"
         ) from e
     return datos.get("message", {}).get("content", "").strip()
+
+
+def normalizar_texto(texto):
+    if not texto:
+        return ""
+    texto = texto.replace("\xa0", " ").replace("\r", " ")
+    texto = re.sub(r"\s+", " ", texto)
+    return texto.strip()
+
+
+def extraer_texto_pdf(ruta):
+    if PdfReader is None:
+        return ""
+    try:
+        lector = PdfReader(str(ruta))
+        paginas = []
+        for pagina in lector.pages:
+            texto = pagina.extract_text() or ""
+            if texto.strip():
+                paginas.append(texto)
+        return "\n".join(paginas)
+    except Exception as exc:  # pragma: no cover - depende del archivo
+        print(f"No se pudo leer {ruta.name}: {exc}", file=sys.stderr)
+        return ""
+
+
+def extraer_texto_pptx(ruta):
+    if Presentation is None:
+        return ""
+    try:
+        presentacion = Presentation(str(ruta))
+        bloques = []
+        for slide in presentacion.slides:
+            textos = []
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    texto = normalizar_texto(shape.text)
+                    if texto:
+                        textos.append(texto)
+            if textos:
+                bloques.append(" ".join(textos))
+        return "\n".join(bloques)
+    except Exception as exc:  # pragma: no cover - depende del archivo
+        print(f"No se pudo leer {ruta.name}: {exc}", file=sys.stderr)
+        return ""
+
+
+def extraer_texto_documento(ruta):
+    extension = ruta.suffix.lower()
+    if extension == ".pdf":
+        return extraer_texto_pdf(ruta)
+    if extension == ".pptx":
+        return extraer_texto_pptx(ruta)
+    return ""
+
+
+def dividir_texto_en_fragmentos(texto, tamano=700, solapamiento=120):
+    texto_limpio = normalizar_texto(texto)
+    if not texto_limpio:
+        return []
+    fragmentos = []
+    inicio = 0
+    longitud = len(texto_limpio)
+    while inicio < longitud:
+        fin = min(inicio + tamano, longitud)
+        fragmento = texto_limpio[inicio:fin]
+        if fragmento.strip():
+            fragmentos.append(fragmento.strip())
+        if fin >= longitud:
+            break
+        inicio += max(1, tamano - solapamiento)
+    return fragmentos
+
+
+def construir_indice_documental():
+    indice = []
+    if not DOCS_CLASE.exists():
+        return indice
+    for ruta in sorted(DOCS_CLASE.iterdir()):
+        if ruta.suffix.lower() not in {".pdf", ".pptx"}:
+            continue
+        contenido = extraer_texto_documento(ruta)
+        if not contenido:
+            continue
+        for numero_fragmento, fragmento in enumerate(dividir_texto_en_fragmentos(contenido)):
+            texto = normalizar_texto(fragmento)
+            if texto:
+                indice.append(
+                    {
+                        "fuente": ruta.name,
+                        "numero": numero_fragmento,
+                        "texto": texto,
+                    }
+                )
+    return indice
+
+
+def tokenizar(texto):
+    return re.findall(r"[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ]+", texto.lower())
+
+
+def puntuar_fragmento(pregunta, fragmento):
+    tokens_pregunta = tokenizar(pregunta)
+    tokens_fragmento = tokenizar(fragmento["texto"])
+    if not tokens_pregunta or not tokens_fragmento:
+        return 0.0
+    contador_pregunta = Counter(tokens_pregunta)
+    contador_fragmento = Counter(tokens_fragmento)
+    coincidencias = sum(
+        contador_pregunta.get(token, 0) * contador_fragmento.get(token, 0)
+        for token in set(contador_pregunta) & set(contador_fragmento)
+    )
+    cobertura = len(set(tokens_pregunta) & set(tokens_fragmento))
+    similitud = SequenceMatcher(None, normalizar_texto(pregunta).lower(), fragmento["texto"].lower()).ratio()
+    return float(coincidencias + (cobertura * 5) + (similitud * 10))
+
+
+def recuperar_contexto(pregunta, top_k=4):
+    if not pregunta or not INDICE_DOCUMENTAL:
+        return ""
+    mejores = []
+    for fragmento in INDICE_DOCUMENTAL:
+        score = puntuar_fragmento(pregunta, fragmento)
+        if score > 0:
+            mejores.append((score, fragmento))
+    if not mejores:
+        return ""
+    mejores = sorted(mejores, key=lambda item: item[0], reverse=True)[:top_k]
+    bloques = []
+    for _, fragmento in mejores:
+        bloques.append(f"[{fragmento['fuente']}] {fragmento['texto']}")
+    return "\n\n".join(bloques)
 
 
 # --- Interfaz ---
@@ -269,6 +420,23 @@ class Manejador(BaseHTTPRequestHandler):
             mensajes = json.loads(self.rfile.read(largo) or b"{}").get("messages")
             if not isinstance(mensajes, list) or not mensajes:
                 raise ValueError("El campo 'messages' debe ser una lista no vacia.")
+
+            ultimo_mensaje = mensajes[-1]
+            pregunta = ultimo_mensaje.get("content", "") if isinstance(ultimo_mensaje, dict) else ""
+            contexto = recuperar_contexto(pregunta)
+
+            if contexto:
+                mensajes = mensajes[:-1] + [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Contexto relevante de la materia:\n"
+                            f"{contexto}\n\n"
+                            f"Pregunta original: {pregunta}"
+                        ),
+                    }
+                ]
+
             completo = [{"role": "system", "content": PROMPT_SISTEMA}] + mensajes
             self.responder({"respuesta": preguntar(completo, MODELO)})
         except Exception as e:
@@ -279,11 +447,13 @@ class Manejador(BaseHTTPRequestHandler):
 
 
 def main():
-    global MODELO, AVISOS
+    global MODELO, AVISOS, INDICE_DOCUMENTAL
     MODELO, AVISOS = resolver_modelo(MODELO_PREDETERMINADO)
+    INDICE_DOCUMENTAL = construir_indice_documental()
 
     print("Chatbot - IA y Mini-Robots (Ejercicio 3)")
     print(f"  Modelo:  {MODELO}")
+    print(f"  Documentos indexados: {len(INDICE_DOCUMENTAL)} fragmentos")
     for aviso in AVISOS:
         print(f"  Aviso:   {aviso}")
     if not AVISOS and not listar_modelos():

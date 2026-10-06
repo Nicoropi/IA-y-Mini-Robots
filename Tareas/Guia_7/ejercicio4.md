@@ -1,13 +1,5 @@
 # Agente de mantenimiento con Ollama
 
-Ejercicio 4 de la guía *7. Inteligencia Artificial Generativa* (José J. Martínez P., septiembre 2026).
-
-> **Enunciado:** Desarrollar un agente de mantenimiento que:
-> - Busque un repuesto (código)
-> - Consulte en el almacén (código)
-> - Genere una orden de trabajo (falla, equipo)
-> - Actualice el historial de fallas
-
 Un LLM local (Ollama) decide qué herramienta usar y con qué argumentos. Las herramientas son funciones de Python que consultan y modifican una base de datos SQLite de la planta.
 
 ## Componentes del agente
